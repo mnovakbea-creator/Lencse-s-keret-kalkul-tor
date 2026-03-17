@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Látszerész Mester Kalkulátor v2.0</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eef2f3; display: flex; justify-content: center; padding: 20px; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 600px; }
+        h2 { color: #2c3e50; text-align: center; border-bottom: 3px solid #3498db; margin-bottom: 20px; padding-bottom: 10px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .input-group { margin-bottom: 12px; }
+        label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; font-weight: bold; }
+        input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 15px; }
+        
+        .result-section { margin-top: 20px; padding: 15px; border-radius: 10px; background: #f9f9f9; border-left: 5px solid #3498db; }
+        .status-item { margin-bottom: 10px; padding: 10px; border-radius: 6px; font-size: 14px; font-weight: 500; line-height: 1.4; }
+        
+        .ok { background: #d4edda; color: #155724; border-left: 5px solid #28a745; }
+        .warn { background: #fff3cd; color: #856404; border-left: 5px solid #ffc107; }
+        .error { background: #f8d7da; color: #721c24; border-left: 5px solid #dc3545; }
+        .info-label { font-size: 16px; font-weight: bold; color: #2c3e50; margin-bottom: 5px; }
+        hr { border: 0; border-top: 1px solid #ddd; margin: 15px 0; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Lencse és Keret Tanácsadó</h2>
+    
+    <div class="grid">
+        <div class="input-group">
+            <label>Dioptria (F)</label>
+            <input type="number" id="dioptria" value="-4.00" step="0.25" oninput="mesterSzamolo()">
+        </div>
+        <div class="input-group">
+            <label>Lencse index (n)</label>
+            <select id="index" onchange="mesterSzamolo()">
+                <option value="1.5">1.5 - CR39</option>
+                <option value="1.6">1.6 - Műanyag</option>
+                <option value="1.67">1.67 - Extra</option>
+                <option value="1.74">1.74 - Prémium</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label>Monokuláris PD (mm)</label>
+            <input type="number" id="pd" value="32" oninput="mesterSzamolo()">
+        </div>
+        <div class="input-group">
+            <label>Keret "A" (szélesség)</label>
+            <input type="number" id="a_meret" value="52" oninput="mesterSzamolo()">
+        </div>
+        <div class="input-group">
+            <label>Híd (DBL)</label>
+            <input type="number" id="dbl" value="18" oninput="mesterSzamolo()">
+        </div>
+        <div class="input-group">
+            <label>Effektív átmérő (ED)</label>
+            <input type="number" id="ed" value="54" oninput="mesterSzamolo()">
+        </div>
+        <div class="input-group">
+            <label>Keret B-méret (mag.)</label>
+            <input type="number" id="b_meret" value="35" oninput="mesterSzamolo()">
+        </div>
+        <div class="input-group">
+            <label>Illesztési mag. (FH)</label>
+            <input type="number" id="fh" value="22" oninput="mesterSzamolo()">
+        </div>
+    </div>
+
+    <div class="result-section">
+        <div class="info-label">Számított technikai adatok:</div>
+        <div id="adatok" style="font-size: 14px; color: #444;"></div>
+        <hr>
+        <div id="visszajelzesek"></div>
+    </div>
+</div>
+
+<script>
+function mesterSzamolo() {
+    // Adatok beolvasása
+    const f = Math.abs(parseFloat(document.getElementById('dioptria').value) || 0);
+    const n = parseFloat(document.getElementById('index').value);
+    const pd = parseFloat(document.getElementById('pd').value) || 0;
+    const a = parseFloat(document.getElementById('a_meret').value) || 0;
+    const dbl = parseFloat(document.getElementById('dbl').value) || 0;
+    const ed = parseFloat(document.getElementById('ed').value) || 0;
+    const b = parseFloat(document.getElementById('b_meret').value) || 0;
+    const fh = parseFloat(document.getElementById('fh').value) || 0;
+
+    // Számítások
+    const gcd = a + dbl; // Keretközép távolság
+    const dec = Math.abs((gcd / 2) - pd);
+    const atmero = ed + (2 * dec) + 2;
+    const sagitta = ((Math.pow(atmero / 2, 2) * f) / (2000 * (n - 1))) + 1.8;
+
+    // Adatok kiírása
+    document.getElementById('adatok').innerHTML = `
+        Decentrum: <b>${dec.toFixed(1)} mm</b> | 
+        Szükséges lencseátmérő: <b>${atmero.toFixed(1)} mm</b><br>
+        Várható széli vastagság: <b>${sagitta.toFixed(1)} mm</b>
+    `;
+
+    let vBox = document.getElementById('visszajelzesek');
+    vBox.innerHTML = ""; 
+
+    // 1. KERETVÁLASZTÁS TÁMOGATÁS (ÚJ LOGIKA)
+    let kStat = document.createElement("div");
+    if (dec > 5) {
+        kStat.className = "status-item error";
+        kStat.innerText = "❌ KERET: Túl nagy a keret a páciens PD-jéhez! Brutális lencsevastagodás várható nazálisan és temporálisan.";
+    } else if (dec > 3) {
+        kStat.className = "status-item warn";
+        kStat.innerText = "⚠️ KERET: A keret kissé nagy (decentrum: " + dec.toFixed(1) + "mm). Vékonyítás javasolt az esztétika miatt.";
+    } else {
+        kStat.className = "status-item ok";
+        kStat.innerText = "✅ KERET: Anatómiailag optimális keretválasztás (PD és keretközép összhangban).";
+    }
+    vBox.appendChild(kStat);
+
+    // 2. ÁTMÉRŐ VISSZAJELZÉS
+    let dStat = document.createElement("div");
+    if (atmero > 75) {
+        dStat.className = "status-item error";
+        dStat.innerText = "❌ GYÁRTÁS: A választott keretbe NEM rendelhető lencse (Ø" + atmero.toFixed(1) + " mm túl nagy).";
+    } else if (atmero > 71) {
+        dStat.className = "status-item warn";
+        dStat.innerText = "⚠️ GYÁRTÁS: Csak egyedi gyártású (recept) lencsével kivitelezhető.";
+    } else {
+        dStat.className = "status-item ok";
+        dStat.innerText = "✅ GYÁRTÁS: Standard raktári átmérővel elkészíthető.";
+    }
+    vBox.appendChild(dStat);
+
+    // 3. VASTAGSÁG VISSZAJELZÉS
+    let vStat = document.createElement("div");
+    if (sagitta > 4.8) {
+        vStat.className = "status-item error";
+        vStat.innerText = "❌ ESZTÉTIKA: A lencse széle nagyon vastag lesz (" + sagitta.toFixed(1) + " mm). Kisebb keret vagy 1.67/1.74 index kell!";
+    } else if (sagitta > 3.5) {
+        vStat.className = "status-item warn";
+        vStat.innerText = "⚠️ ESZTÉTIKA: A szél láthatóan vastag lesz. Ajánlj vékonyított lencsét!";
+    } else {
+        vStat.className = "status-item ok";
+        vStat.innerText = "✅ ESZTÉTIKA: Vékony, esztétikus lencseszél.";
+    }
+    vBox.appendChild(vStat);
+
+    // 4. MULTIFOKÁLIS VISSZAJELZÉS
+    let mStat = document.createElement("div");
+    const felsoHely = b - fh;
+    if (fh > 0) { // Csak ha be van írva érték
+        if (fh < 16) {
+            mStat.className = "status-item error";
+            mStat.innerText = "❌ MULTI: Túl alacsony illesztés! Nincs hely az olvasócsatornának.";
+        } else if (felsoHely < 10) {
+            mStat.className = "status-item warn";
+            mStat.innerText = "⚠️ MULTI: Kevés hely a pupilla felett (" + felsoHely.toFixed(1) + " mm). A távoli zóna korlátozott lesz.";
+        } else {
+            mStat.className = "status-item ok";
+            mStat.innerText = "✅ MULTI: Megfelelő függőleges helykínálat.";
+        }
+        vBox.appendChild(mStat);
+    }
+}
+
+mesterSzamolo();
+</script>
+
+</body>
+</html>
